@@ -1,15 +1,15 @@
 import scala.util.Random
 import time.Time; import Time._
 
-class MM1(lam:Double, mu:Double) extends Simulation {
+class MMS(lam:Double, mu:Double, s:Int) extends Simulation {
   import Distributions._
 
   type ListBuffer = scala.collection.mutable.ListBuffer[Int]
 
   var que = new ListBuffer()
 
-  var num = 20;
-  var busy = false;
+  var num = 40;
+  var busy = new Array[Boolean](s)
 
   val arrivals: IntDistribution = new PoissonDistribution(lam).scale(SEC).sum().toInt
   val service: IntDistribution = new PoissonDistribution(mu).scale(SEC).sum().toInt
@@ -22,37 +22,40 @@ class MM1(lam:Double, mu:Double) extends Simulation {
 
   def arrive(who:Int):Unit = {
     log(s"#$who arrived")
-    if (busy) {
-      que.append(who)
-    } else{
-      serve(who)
+    var havetowait = true
+    for (i <- 0 until s) {
+      if (!busy(i) && havetowait) {
+        serve(who, i)
+        havetowait = false
+      }
     }
+    if (havetowait) que.append(who)
   }
 
-  def serve(who:Int):Unit = {
-    busy = true
-    log(s"#$who being served")
+  def serve(who:Int, server:Int):Unit = {
+    busy(server) = true
+    log(s"#$who being served at counter #$server")
     after(Time(service.next)) {
-      leave(who)
+      leave(who, server)
     }
   }
 
-  def leave(who:Int):Unit = {
-    log(s"#$who leaving")
-    busy = false
+  def leave(who:Int, server:Int):Unit = {
+    log(s"#$who leaving counter #$server")
+    busy(server) = false
     if (!que.isEmpty) {
       val nextperson = que(0)
       que = que.drop(1)
-      serve(nextperson)
+      serve(nextperson, server)
     }
   }
 
 
 }
 
-object MM1_1 {
+object MMS_1 {
   def main(args:Array[String]):Unit = {
-    var q = new MM1(8.0, 10.0)
+    var q = new MMS(20.0, 20.0, 4)
     q.run(Some(secs(50)))
   }
 }
